@@ -5,11 +5,12 @@ import { ParticipantTable } from './components/ParticipantTable'
 import { EpochSelector } from './components/EpochSelector'
 import { Timeline } from './components/Timeline'
 import { Models } from './components/Models'
+import { MyNodes } from './components/MyNodes'
 import { EpochTimer } from './components/EpochTimer'
 import { usePrefetch } from './hooks/usePrefetch'
 import { useEstimatedBlock } from './hooks/useEstimatedBlock'
 
-type Page = 'dashboard' | 'models' | 'timeline'
+type Page = 'dashboard' | 'models' | 'timeline' | 'myNodes'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
@@ -67,6 +68,11 @@ function App() {
     
     if (pageParam === 'models') {
       setCurrentPage('models')
+      return
+    }
+    
+    if (pageParam === 'myNodes') {
+      setCurrentPage('myNodes')
       return
     }
     
@@ -134,6 +140,11 @@ function App() {
     const params = new URLSearchParams(window.location.search)
     if (page === 'timeline') {
       params.set('page', 'timeline')
+      params.delete('epoch')
+      params.delete('participant')
+      params.delete('model')
+    } else if (page === 'myNodes') {
+      params.set('page', 'myNodes')
       params.delete('epoch')
       params.delete('participant')
       params.delete('model')
@@ -217,6 +228,16 @@ function App() {
               Models
             </button>
             <button
+              onClick={() => handlePageChange('myNodes')}
+              className={`flex-1 sm:flex-none px-4 py-2 font-medium rounded-md transition-colors ${
+                currentPage === 'myNodes'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              MyNodes
+            </button>
+            <button
               onClick={() => handlePageChange('timeline')}
               className={`flex-1 sm:flex-none px-4 py-2 font-medium rounded-md transition-colors ${
                 currentPage === 'timeline'
@@ -233,6 +254,8 @@ function App() {
           <Timeline />
         ) : currentPage === 'models' ? (
           <Models />
+        ) : currentPage === 'myNodes' ? (
+          <MyNodes />
         ) : (
           data && (
             <>
