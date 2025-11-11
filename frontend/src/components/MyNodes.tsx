@@ -266,12 +266,15 @@ export function MyNodes() {
                 <tr className="text-left text-gray-600">
                   <th className="py-2 pr-4">Wallet</th>
                   <th className="py-2 pr-4">Chain</th>
+                  <th className="py-2 pr-4">Jail</th>
+                  <th className="py-2 pr-4">Health</th>
                   <th className="py-2 pr-4">Models</th>
                   <th className="py-2 pr-4">Total inferenced</th>
                   <th className="py-2 pr-4">Validated</th>
                   <th className="py-2 pr-4">Invalidated</th>
                   <th className="py-2 pr-4">Missed</th>
                   <th className="py-2 pr-4">Missed rate</th>
+                  <th className="py-2 pr-4">Uptime</th>
                   <th className="py-2 pr-4">Invalidation rate</th>
                 </tr>
               </thead>
@@ -281,6 +284,7 @@ export function MyNodes() {
                   const loading = !!loadingMap[addr]
                   const metrics = calcMetrics(details || null)
                   const status = statusMap[addr] || 'unknown'
+                  const isJailed = (details?.status || '').toLowerCase().includes('jail')
                   const badgeClass =
                     status === 'working'
                       ? 'bg-green-100 text-green-800'
@@ -298,12 +302,15 @@ export function MyNodes() {
                         </div>
                       </td>
                       <td className="py-2 pr-4">{details?.status || '-'}</td>
+                      <td className="py-2 pr-4">{details ? (isJailed ? 'Yes' : 'No') : '-'}</td>
+                      <td className="py-2 pr-4">{status === 'working' ? 'Good' : status === 'not_working' ? 'Bad' : 'Unknown'}</td>
                       <td className="py-2 pr-4">{(details?.models?.length || 0) > 0 ? (details!.models!.join(', ')) : '-'}</td>
                       <td className="py-2 pr-4">{metrics.totalInferenced}</td>
                       <td className="py-2 pr-4">{metrics.validated}</td>
                       <td className="py-2 pr-4">{metrics.invalidated}</td>
                       <td className="py-2 pr-4">{metrics.missed}</td>
                       <td className="py-2 pr-4">{formatPct(metrics.missedRate)}</td>
+                      <td className="py-2 pr-4">{formatPct(100 - metrics.missedRate)}</td>
                       <td className="py-2 pr-4">{formatPct(metrics.invalidationRate)}</td>
                     </tr>
                   )
