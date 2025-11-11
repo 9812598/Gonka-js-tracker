@@ -1,5 +1,11 @@
-require('dotenv').config()
 const path = require('path')
+const dotenv = require('dotenv')
+
+// Load environment variables robustly:
+// 1) from current working directory
+dotenv.config()
+// 2) explicitly from backend2/.env (fills missing vars if cwd differs)
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') })
 
 const toInt = (val, def) => {
   const n = parseInt(val, 10)
