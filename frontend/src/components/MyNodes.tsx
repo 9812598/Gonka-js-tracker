@@ -12,6 +12,7 @@ interface ParticipantDetails {
     inference_count?: number
     missed_requests?: number
     validated_inferences?: number
+    invalidated_inferences?: number
   }
 }
 
@@ -24,25 +25,23 @@ export function MyNodes() {
   const [errorMap, setErrorMap] = useState<Record<string, string>>({})
   const [detailsMap, setDetailsMap] = useState<Record<string, ParticipantDetails | null>>({})
 
-  // Load saved addresses
+  // Load saved addresses strictly from backend
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('myNodes.addresses')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed)) {
-          setAddresses(parsed)
+    const loadWallets = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/v1/wallets`)
+        if (res.ok) {
+          const data = await res.json()
+          const list: string[] = Array.isArray(data?.wallets) ? data.wallets.map((w: any) => String(w.address)) : []
+          if (list.length > 0) {
+            setAddresses(list)
+            return
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
+    loadWallets()
   }, [])
-
-  // Persist addresses
-  useEffect(() => {
-    try {
-      localStorage.setItem('myNodes.addresses', JSON.stringify(addresses))
-    } catch {}
-  }, [addresses])
 
   const parseInput = (text: string): string[] => {
     return Array.from(
@@ -61,8 +60,41 @@ export function MyNodes() {
     const parsed = parseInput(inputText)
     if (parsed.length === 0) return
     const filtered = parsed.filter(isLikelyAddress)
-    const merged = Array.from(new Set([...addresses, ...filtered]))
-    setAddresses(merged)
+    const newOnes = filtered.filter((a) => !addresses.includes(a))
+    if (newOnes.length === 0) {
+      setInputText('')
+      return
+    }
+    // Persist to backend, only update state after backend confirms
+    (async () => {
+      try {
+        await Promise.all(
+          newOnes.map(async (addr) => {
+            const res = await fetch(`${apiUrl}/v1/wallets`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ address: addr })
+            })
+            if (!res.ok) {
+              const errText = await res.text().catch(() => '')
+              setErrorMap((prev) => ({ ...prev, [addr]: `Add failed: HTTP ${res.status}${errText ? ` - ${errText}` : ''}` }))
+            }
+          })
+        )
+        // Re-sync with backend to ensure persistence
+        const res = await fetch(`${apiUrl}/v1/wallets`)
+        if (res.ok) {
+          const data = await res.json()
+          const list: string[] = Array.isArray(data?.wallets) ? data.wallets.map((w: any) => String(w.address)) : []
+          setAddresses(list)
+        } else {
+          const errText = await res.text().catch(() => '')
+          console.error('Failed to reload wallets:', res.status, errText)
+        }
+      } catch (e) {
+        console.error('Network error while adding wallets', e)
+      }
+    })()
     setInputText('')
   }
 
@@ -83,6 +115,19 @@ export function MyNodes() {
       delete next[addr]
       return next
     })
+    // Persist removal to backend
+    ;(async () => {
+      try {
+        await fetch(`${apiUrl}/v1/wallets/${encodeURIComponent(addr)}`, { method: 'DELETE' })
+        // Re-sync with backend to ensure persistence
+        const res = await fetch(`${apiUrl}/v1/wallets`)
+        if (res.ok) {
+          const data = await res.json()
+          const list: string[] = Array.isArray(data?.wallets) ? data.wallets.map((w: any) => String(w.address)) : []
+          setAddresses(list)
+        }
+      } catch {}
+    })()
   }
 
   const deriveStatus = (details: ParticipantDetails | null): NodeStatus => {
@@ -147,6 +192,19 @@ export function MyNodes() {
     return { working, notWorking, unknown }
   }, [addresses, statusMap])
 
+  const calcMetrics = (d: ParticipantDetails | null) => {
+    const inference = d?.current_epoch_stats?.inference_count || 0
+    const missed = d?.current_epoch_stats?.missed_requests || 0
+    const validated = d?.current_epoch_stats?.validated_inferences || 0
+    const invalidated = d?.current_epoch_stats?.invalidated_inferences || 0
+    const totalInferenced = inference + missed
+    const missedRate = totalInferenced > 0 ? (missed / totalInferenced) * 100 : 0
+    const invalidationRate = (validated + invalidated) > 0 ? (invalidated / (validated + invalidated)) * 100 : 0
+    return { totalInferenced, inference, missed, validated, invalidated, missedRate, invalidationRate }
+  }
+
+  const formatPct = (v: number) => `${v.toFixed(1)}%`
+
   return (
     <div>
       <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6 border border-gray-200">
@@ -178,6 +236,71 @@ export function MyNodes() {
           </div>
         </div>
       </div>
+
+      {/* Host Dashboard-style metrics table */}
+      {addresses.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6 border border-gray-200">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-base md:text-lg font-bold text-gray-900">Host Dashboard Metrics</h3>
+            <div className="text-xs text-gray-600">
+              <span className="mr-3">Working: {summaryCounts.working}</span>
+              <span className="mr-3">Not Working: {summaryCounts.notWorking}</span>
+              <span>Unknown: {summaryCounts.unknown}</span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs md:text-sm">
+              <thead>
+                <tr className="text-left text-gray-600">
+                  <th className="py-2 pr-4">Wallet</th>
+                  <th className="py-2 pr-4">Chain</th>
+                  <th className="py-2 pr-4">Models</th>
+                  <th className="py-2 pr-4">Total inferenced</th>
+                  <th className="py-2 pr-4">Validated</th>
+                  <th className="py-2 pr-4">Invalidated</th>
+                  <th className="py-2 pr-4">Missed</th>
+                  <th className="py-2 pr-4">Missed rate</th>
+                  <th className="py-2 pr-4">Invalidation rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {addresses.map((addr) => {
+                  const details = detailsMap[addr]
+                  const loading = !!loadingMap[addr]
+                  const metrics = calcMetrics(details || null)
+                  const status = statusMap[addr] || 'unknown'
+                  const badgeClass =
+                    status === 'working'
+                      ? 'bg-green-100 text-green-800'
+                      : status === 'not_working'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-gray-100 text-gray-800'
+                  return (
+                    <tr key={addr}>
+                      <td className="py-2 pr-4 font-mono text-gray-900">
+                        <div className="flex items-center gap-2">
+                          <span>{addr}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded ${badgeClass}`}>
+                            {loading ? 'Checking...' : status === 'working' ? 'Working' : status === 'not_working' ? 'Not working' : 'Unknown'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2 pr-4">{details?.status || '-'}</td>
+                      <td className="py-2 pr-4">{(details?.models?.length || 0) > 0 ? (details!.models!.join(', ')) : '-'}</td>
+                      <td className="py-2 pr-4">{metrics.totalInferenced}</td>
+                      <td className="py-2 pr-4">{metrics.validated}</td>
+                      <td className="py-2 pr-4">{metrics.invalidated}</td>
+                      <td className="py-2 pr-4">{metrics.missed}</td>
+                      <td className="py-2 pr-4">{formatPct(metrics.missedRate)}</td>
+                      <td className="py-2 pr-4">{formatPct(metrics.invalidationRate)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 border border-gray-200">
         <div className="mb-4 flex items-center justify-between">

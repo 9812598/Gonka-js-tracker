@@ -17,7 +17,8 @@ class CacheDB {
       this._mem = {
         inference_stats: [],
         models_api_cache: new Map(),
-        timeline_cache: null
+        timeline_cache: null,
+        wallets: []
       }
       return
     }
@@ -85,6 +86,15 @@ class CacheDB {
         id INTEGER PRIMARY KEY,
         timeline_json TEXT NOT NULL,
         cached_at TEXT NOT NULL
+      );
+    `)
+
+    // wallets (user-saved addresses)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS wallets (
+        address TEXT PRIMARY KEY,
+        label TEXT,
+        created_at TEXT NOT NULL
       );
     `)
   }
@@ -194,6 +204,58 @@ class CacheDB {
     `).get()
     if (!row) return null
     return { timeline: JSON.parse(row.timeline_json), cached_at: row.cached_at }
+  }
+
+  // --- Wallets persistence ---
+  listWallets() {
+    if (!Database) {
+      // return a copy to avoid mutation
+      return this._mem.wallets.slice()
+    }
+    const rows = this.db.prepare(`
+      SELECT address, label, created_at FROM wallets ORDER BY created_at DESC
+    `).all()
+    return rows
+  }
+
+  addWallet(address, label = null) {
+    const addr = String(address || '').trim()
+    if (!addr) return null
+    const now = new Date().toISOString()
+    if (!Database) {
+      const existingIdx = this._mem.wallets.findIndex((w) => w.address === addr)
+      const row = { address: addr, label: label || null, created_at: now }
+      if (existingIdx >= 0) {
+        // update label
+        this._mem.wallets[existingIdx] = { ...this._mem.wallets[existingIdx], label: row.label }
+      } else {
+        this._mem.wallets.push(row)
+      }
+      return row
+    }
+    this.db.prepare(`
+      INSERT OR IGNORE INTO wallets (address, label, created_at) VALUES (?, ?, ?)
+    `).run(addr, label || null, now)
+    // If already existed, update label if provided
+    if (label && label.trim() !== '') {
+      this.db.prepare(`UPDATE wallets SET label = ? WHERE address = ?`).run(label, addr)
+    }
+    const row = this.db.prepare(`
+      SELECT address, label, created_at FROM wallets WHERE address = ?
+    `).get(addr)
+    return row
+  }
+
+  deleteWallet(address) {
+    const addr = String(address || '').trim()
+    if (!addr) return false
+    if (!Database) {
+      const before = this._mem.wallets.length
+      this._mem.wallets = this._mem.wallets.filter((w) => w.address !== addr)
+      return this._mem.wallets.length < before
+    }
+    const info = this.db.prepare(`DELETE FROM wallets WHERE address = ?`).run(addr)
+    return (info.changes || 0) > 0
   }
 }
 

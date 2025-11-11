@@ -37,6 +37,12 @@
 - `GET /v1/models/current` — текущие модели и статистика.
 - `GET /v1/timeline` — упрощённая временная шкала (без событий).
 
+### Кошельки (простая SQL‑база для списка)
+
+- `GET /v1/wallets` — получить список сохранённых кошельков. Ответ: `{ wallets: [{ address, label, created_at }] }`
+- `POST /v1/wallets` — добавить кошелёк. Тело: `{ address: string, label?: string }`. Ответ: `{ wallet: { address, label, created_at } }`
+- `DELETE /v1/wallets/:address` — удалить кошелёк. Ответ: `{ deleted: boolean }`
+
 Заглушки (501):
 
 - `GET /v1/inference/epochs/:epochId`

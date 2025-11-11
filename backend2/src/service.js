@@ -236,6 +236,34 @@ class InferenceService {
       cached_at: new Date().toISOString()
     }
   }
+
+  // --- Wallets persistence ---
+  getWallets() {
+    try {
+      return { wallets: this.db.listWallets() }
+    } catch (e) {
+      throw new Error(`Failed to list wallets: ${e.message}`)
+    }
+  }
+
+  addWallet({ address, label }) {
+    try {
+      const row = this.db.addWallet(address, label)
+      if (!row) throw new Error('Address is empty')
+      return { wallet: row }
+    } catch (e) {
+      throw new Error(`Failed to add wallet: ${e.message}`)
+    }
+  }
+
+  deleteWallet({ address }) {
+    try {
+      const ok = this.db.deleteWallet(address)
+      return { deleted: ok }
+    } catch (e) {
+      throw new Error(`Failed to delete wallet: ${e.message}`)
+    }
+  }
 }
 
 module.exports = { InferenceService }

@@ -35,6 +35,37 @@ function createRouter(service) {
     }
   })
 
+  // Wallets CRUD
+  router.get('/wallets', (req, res) => {
+    try {
+      const data = service.getWallets()
+      res.json(data)
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+  router.post('/wallets', (req, res) => {
+    const { address, label } = req.body || {}
+    if (!address || String(address).trim() === '') {
+      return res.status(400).json({ error: 'address is required' })
+    }
+    try {
+      const data = service.addWallet({ address, label })
+      res.json(data)
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+  router.delete('/wallets/:address', (req, res) => {
+    const address = req.params.address
+    try {
+      const data = service.deleteWallet({ address })
+      res.json(data)
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+
   // Placeholders (return 501 for now)
   router.get('/inference/epochs/:epochId', (req, res) => {
     res.status(501).json({ error: 'Not implemented yet' })

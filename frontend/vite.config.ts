@@ -6,6 +6,8 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
+    // Allow reverse-proxied Host header from tracker.gonka.top
+    allowedHosts: ['tracker.gonka.top'],
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
