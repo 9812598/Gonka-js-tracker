@@ -10,10 +10,10 @@ import { EpochTimer } from './components/EpochTimer'
 import { usePrefetch } from './hooks/usePrefetch'
 import { useEstimatedBlock } from './hooks/useEstimatedBlock'
 
-type Page = 'dashboard' | 'models' | 'timeline' | 'myNodes'
+type Page = 'hostDashboard' | 'models' | 'timeline' | 'myNodes'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard')
+  const [currentPage, setCurrentPage] = useState<Page>('myNodes')
   const [selectedEpochId, setSelectedEpochId] = useState<number | null>(null)
   const [currentEpochId, setCurrentEpochId] = useState<number | null>(null)
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null)
@@ -36,7 +36,7 @@ function App() {
     staleTime: 0,
     refetchInterval: 30000,
     refetchOnMount: true,
-    enabled: currentPage === 'dashboard',
+    enabled: currentPage === 'hostDashboard',
   })
 
   const error = queryError ? (queryError as Error).message : ''
@@ -76,6 +76,11 @@ function App() {
       return
     }
     
+    if (pageParam === 'hostDashboard') {
+      setCurrentPage('hostDashboard')
+      return
+    }
+    
     if (epochParam) {
       const epochId = parseInt(epochParam)
       if (!isNaN(epochId)) {
@@ -90,6 +95,9 @@ function App() {
     if (participantParam) {
       setSelectedParticipantId(participantParam)
     }
+    
+    // Default page when no recognized page param
+    setCurrentPage('myNodes')
   }, [])
 
   useEffect(() => {
@@ -107,7 +115,7 @@ function App() {
   }, [selectedEpochId])
 
   useEffect(() => {
-    if (currentPage === 'dashboard' && data) {
+    if (currentPage === 'hostDashboard' && data) {
       prefetchAll()
     }
   }, [currentPage, data, prefetchAll])
@@ -152,8 +160,8 @@ function App() {
       params.set('page', 'models')
       params.delete('participant')
       params.delete('block')
-    } else {
-      params.delete('page')
+    } else if (page === 'hostDashboard') {
+      params.set('page', 'hostDashboard')
       params.delete('block')
       params.delete('model')
     }
@@ -208,9 +216,19 @@ function App() {
 
           <div className="flex gap-2 sm:gap-3">
             <button
-              onClick={() => handlePageChange('dashboard')}
+              onClick={() => handlePageChange('myNodes')}
               className={`flex-1 sm:flex-none px-4 py-2 font-medium rounded-md transition-colors ${
-                currentPage === 'dashboard'
+                currentPage === 'myNodes'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              MyNodes
+            </button>
+            <button
+              onClick={() => handlePageChange('hostDashboard')}
+              className={`flex-1 sm:flex-none px-4 py-2 font-medium rounded-md transition-colors ${
+                currentPage === 'hostDashboard'
                   ? 'bg-gray-900 text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
@@ -226,16 +244,6 @@ function App() {
               }`}
             >
               Models
-            </button>
-            <button
-              onClick={() => handlePageChange('myNodes')}
-              className={`flex-1 sm:flex-none px-4 py-2 font-medium rounded-md transition-colors ${
-                currentPage === 'myNodes'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              MyNodes
             </button>
             <button
               onClick={() => handlePageChange('timeline')}
@@ -256,7 +264,7 @@ function App() {
           <Models />
         ) : currentPage === 'myNodes' ? (
           <MyNodes />
-        ) : (
+        ) : currentPage === 'hostDashboard' ? (
           data && (
             <>
               <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6 border border-gray-200">
@@ -378,7 +386,7 @@ function App() {
               </div>
             </>
           )
-        )}
+        ) : null}
       </div>
       
       <footer className="bg-white border-t border-gray-200 py-6 mt-12">
