@@ -16,7 +16,6 @@ build/
 .DS_Store
 config.env
 *.sqlite
-*.db
 cache/
 node_modules/
 *.local
