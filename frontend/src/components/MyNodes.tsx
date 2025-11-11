@@ -56,6 +56,18 @@ export function MyNodes() {
 
   const isLikelyAddress = (s: string) => /^gonka[0-9a-z]+$/.test(s)
 
+  const AddressLabel = ({ addr, className = '' }: { addr: string; className?: string }) => {
+    const short = `....${addr.slice(-6)}`
+    return (
+      <span className={`relative inline-flex items-center group ${className}`}>
+        <span className="font-mono">{short}</span>
+        <span className="absolute -top-6 left-0 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 z-10">
+          {addr}
+        </span>
+      </span>
+    )
+  }
+
   const addAddresses = () => {
     const parsed = parseInput(inputText)
     if (parsed.length === 0) return
@@ -277,9 +289,9 @@ export function MyNodes() {
                       : 'bg-gray-100 text-gray-800'
                   return (
                     <tr key={addr}>
-                      <td className="py-2 pr-4 font-mono text-gray-900">
+                      <td className="py-2 pr-4 text-gray-900">
                         <div className="flex items-center gap-2">
-                          <span>{addr}</span>
+                          <AddressLabel addr={addr} />
                           <span className={`text-[10px] px-2 py-0.5 rounded ${badgeClass}`}>
                             {loading ? 'Checking...' : status === 'working' ? 'Working' : status === 'not_working' ? 'Not working' : 'Unknown'}
                           </span>
@@ -331,7 +343,7 @@ export function MyNodes() {
                 <div key={addr} className="py-3 flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm md:text-base text-gray-900">{addr}</span>
+                      <AddressLabel addr={addr} className="text-sm md:text-base text-gray-900" />
                       <span className={`text-xs px-2 py-0.5 rounded ${badgeClass}`}>
                         {loading ? 'Checking...' : status === 'working' ? 'Working' : status === 'not_working' ? 'Not working' : 'Unknown'}
                       </span>
