@@ -1,4 +1,5 @@
 require('dotenv').config()
+const path = require('path')
 
 const toInt = (val, def) => {
   const n = parseInt(val, 10)
@@ -24,11 +25,22 @@ if (!CORS_ENV || CORS_ENV.trim() === '') {
   corsOrigin = CORS_ENV.trim()
 }
 
+// Resolve DB path robustly across environments
+const resolveDbPath = (p) => {
+  const val = (p || '').trim()
+  if (!val) {
+    // Default to project-level backend2/cache.db absolute path
+    return path.resolve(__dirname, '..', 'cache.db')
+  }
+  // If absolute, use as-is; otherwise resolve relative to current working directory
+  return path.isAbsolute(val) ? val : path.resolve(process.cwd(), val)
+}
+
 module.exports = {
   port: toInt(process.env.PORT, 8080),
   corsOrigin,
   inferenceUrls: INFERENCE_URLS,
-  dbPath: process.env.CACHE_DB_PATH || 'backend2/cache.db',
+  dbPath: resolveDbPath(process.env.CACHE_DB_PATH),
   timeouts: {
     http: toInt(process.env.HTTP_TIMEOUT_MS, 30000)
   }

@@ -11,10 +11,10 @@ function buildApp() {
   app.use(cors({ origin: config.corsOrigin, credentials: true }))
   app.use(express.json())
 
+  console.log(`[backend2] Cache DB path: ${config.dbPath}`)
   const db = new CacheDB(config.dbPath)
   // Ensure DB schema is initialized (creates tables if missing)
   db.initialize()
-  console.log(`[backend2] Cache DB path: ${config.dbPath}`)
   const client = new GonkaClient(config.inferenceUrls, config.timeouts.http)
   const service = new InferenceService(client, db)
   const router = createRouter(service)
