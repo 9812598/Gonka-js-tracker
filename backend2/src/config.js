@@ -17,7 +17,12 @@ const INFERENCE_URLS = (process.env.INFERENCE_URLS || 'http://node2.gonka.ai:800
   .map((u) => u.trim())
   .filter(Boolean)
 
-const DEFAULT_CORS = ['http://localhost:3000', 'http://localhost:3001']
+const DEFAULT_CORS = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://tracker.gonka.top',
+  'http://tracker.gonka.top'
+]
 
 const CORS_ENV = process.env.CORS_ORIGIN
 let corsOrigin
