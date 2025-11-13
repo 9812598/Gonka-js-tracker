@@ -20,8 +20,12 @@ const INFERENCE_URLS = (process.env.INFERENCE_URLS || 'http://node2.gonka.ai:800
 const DEFAULT_CORS = [
   'http://localhost:3000',
   'http://localhost:3001',
+  'http://localhost:8081',
+  'http://localhost:4173',
   'https://tracker.gonka.top',
-  'http://tracker.gonka.top'
+  'http://tracker.gonka.top',
+  'https://tracker-back.tracker.gonka.top',
+  'http://tracker-back.tracker.gonka.top'
 ]
 
 const CORS_ENV = process.env.CORS_ORIGIN
