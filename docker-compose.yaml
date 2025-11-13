@@ -14,7 +14,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
     depends_on:
-      - backend
+      - backend2
       - frontend
 
   backend:
@@ -24,13 +24,22 @@ services:
     volumes:
       - backend-cache:/app/cache
     labels:
+      - "traefik.enable=false"
+
+  backend2:
+    build: ./backend2
+    env_file:
+      - backend2/.env
+    volumes:
+      - backend2-cache:/app/cache
+    labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
-      - "traefik.http.routers.backend.entrypoints=web,websecure"
-      - "traefik.http.routers.backend.priority=100"
-      - "traefik.http.middlewares.backend-strip.stripprefix.prefixes=/api"
-      - "traefik.http.routers.backend.middlewares=backend-strip"
-      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+      - "traefik.http.routers.backend2.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.backend2.entrypoints=web,websecure"
+      - "traefik.http.routers.backend2.priority=100"
+      - "traefik.http.middlewares.api-strip.stripprefix.prefixes=/api"
+      - "traefik.http.routers.backend2.middlewares=api-strip"
+      - "traefik.http.services.backend2.loadbalancer.server.port=8081"
 
   frontend:
     build:
@@ -50,3 +59,4 @@ services:
 
 volumes:
   backend-cache:
+  backend2-cache:
