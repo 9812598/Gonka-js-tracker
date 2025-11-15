@@ -20,7 +20,7 @@ export function MyNodes() {
   const apiUrl = import.meta.env.VITE_API_URL || '/api'
   const [inputText, setInputText] = useState('')
   const [addresses, setAddresses] = useState<string[]>([])
-  const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({})
+  const [, setLoadingMap] = useState<Record<string, boolean>>({})
   const [statusMap, setStatusMap] = useState<Record<string, NodeStatus>>({})
   const [errorMap, setErrorMap] = useState<Record<string, string>>({})
   const [detailsMap, setDetailsMap] = useState<Record<string, ParticipantDetails | null>>({})
@@ -293,9 +293,7 @@ export function MyNodes() {
               <tbody className="divide-y divide-gray-200">
                 {addresses.map((addr) => {
                   const details = detailsMap[addr]
-                  const loading = !!loadingMap[addr]
                   const metrics = calcMetrics(details || null)
-                  const status = statusMap[addr] || 'unknown'
                   // const isJailed = (details?.status || '').toLowerCase().includes('jail')
                   return (
                     <tr key={addr}>
@@ -350,8 +348,6 @@ export function MyNodes() {
         ) : (
           <div className="divide-y divide-gray-200">
             {addresses.map((addr) => {
-              const status = statusMap[addr] || 'unknown'
-              const loading = !!loadingMap[addr]
               const details = detailsMap[addr]
 
               return (
