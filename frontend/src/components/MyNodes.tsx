@@ -228,7 +228,7 @@ export function MyNodes() {
     return { totalInferenced, inference, missed, validated, invalidated, missedRate, invalidationRate }
   }
 
-  const formatPct = (v: number) => `${v.toFixed(1)}%`
+  const formatPct = (v: number) => `${v.toFixed(2)}%`
 
   return (
     <div>
@@ -284,10 +284,10 @@ export function MyNodes() {
                   <th className="py-2 pr-4">Total inferenced</th>
                   <th className="py-2 pr-4">Validated</th>
                   <th className="py-2 pr-4">Invalidated</th>
+                  <th className="py-2 pr-4">Invalidation rate</th>
                   <th className="py-2 pr-4">Missed</th>
                   <th className="py-2 pr-4">Missed rate</th>
                   <th className="py-2 pr-4">Uptime</th>
-                  <th className="py-2 pr-4">Invalidation rate</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -320,10 +320,10 @@ export function MyNodes() {
                       <td className="py-2 pr-4">{metrics.totalInferenced}</td>
                       <td className="py-2 pr-4">{metrics.validated}</td>
                       <td className={`py-2 pr-4 ${metrics.invalidated > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>{metrics.invalidated}</td>
+                      <td className="py-2 pr-4">{formatPct(metrics.invalidationRate)}</td>
                       <td className={`py-2 pr-4 ${metrics.missed > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>{metrics.missed}</td>
                       <td className="py-2 pr-4">{formatPct(metrics.missedRate)}</td>
                       <td className="py-2 pr-4">{formatPct(100 - metrics.missedRate)}</td>
-                      <td className="py-2 pr-4">{formatPct(metrics.invalidationRate)}</td>
                     </tr>
                   )
                 })}
