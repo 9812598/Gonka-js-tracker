@@ -61,18 +61,39 @@ export function ParticipantTable({ participants, epochId, isCurrentEpoch, curren
             <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
               Invalid Rate
             </th>
-            <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-16">
-              Jail
-            </th>
-            <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-16">
-              Health
-            </th>
+            {/**
+             * Jail/Health columns temporarily disabled until we can match external tracker logic
+             * <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-16">Jail</th>
+             * <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-16">Health</th>
+             */}
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {sortedParticipants.map((participant) => {
             const totalInferenced = parseInt(participant.current_epoch_stats.inference_count) + 
                                    parseInt(participant.current_epoch_stats.missed_requests)
+            // Jail/Health derivation temporarily disabled until we can match external tracker logic
+            // const statusLower = (participant.status || '').toLowerCase()
+            // const derivedJailed = statusLower.includes('jail')
+            //   ? true
+            //   : (statusLower === 'active' || statusLower === 'enabled' || statusLower === 'ramping')
+            //     ? false
+            //     : undefined
+            // const jail = (participant.is_jailed === true || participant.is_jailed === false)
+            //   ? participant.is_jailed
+            //   : derivedJailed
+
+            // const hasModels = (participant.models || []).length > 0
+            // const hasUrl = !!participant.inference_url
+            // const hasActivity = parseInt(participant.current_epoch_stats.inference_count) > 0
+            // const derivedHealthy = (statusLower === 'inactive' || statusLower === 'offline')
+            //   ? false
+            //   : (statusLower === 'active' || statusLower === 'enabled' || statusLower === 'ramping' || hasModels || hasUrl || hasActivity)
+            //     ? true
+            //     : undefined
+            // const healthy = (participant.node_healthy === true || participant.node_healthy === false)
+            //   ? participant.node_healthy
+            //   : derivedHealthy
             
             return (
               <tr
@@ -137,28 +158,7 @@ export function ParticipantTable({ participants, epochId, isCurrentEpoch, curren
                     {(participant.invalidation_rate * 100).toFixed(2)}%
                   </span>
                 </td>
-                <td className="px-2 py-3 text-center whitespace-nowrap">
-                  <div className="flex justify-center">
-                    {participant.is_jailed === true ? (
-                      <div className="w-3 h-3 bg-red-600 rounded-full" title="Jailed"></div>
-                    ) : participant.is_jailed === false ? (
-                      <div className="w-3 h-3 bg-green-600 rounded-full" title="Active"></div>
-                    ) : (
-                      <div className="w-3 h-3 bg-gray-300 rounded-full" title="Unknown"></div>
-                    )}
-                  </div>
-                </td>
-                <td className="px-2 py-3 text-center whitespace-nowrap">
-                  <div className="flex justify-center">
-                    {participant.node_healthy === true ? (
-                      <div className="w-3 h-3 bg-green-600 rounded-full" title="Healthy"></div>
-                    ) : participant.node_healthy === false ? (
-                      <div className="w-3 h-3 bg-red-600 rounded-full" title="Unhealthy"></div>
-                    ) : (
-                      <div className="w-3 h-3 bg-gray-300 rounded-full" title="Unknown"></div>
-                    )}
-                  </div>
-                </td>
+                {/** Jail/Health cells temporarily disabled until we can match external tracker logic */}
               </tr>
             )
           })}

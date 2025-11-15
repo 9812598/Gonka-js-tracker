@@ -1,5 +1,23 @@
 const { CacheDB } = require('./db')
 
+function deriveIsJailed(statusRaw) {
+  const status = String(statusRaw || '').toLowerCase()
+  if (!status) return undefined
+  if (status.includes('jail')) return true
+  if (status === 'active' || status === 'enabled' || status === 'ramping') return false
+  return undefined
+}
+
+function deriveNodeHealthy({ statusRaw, models, inferenceUrl, currentStats }) {
+  const status = String(statusRaw || '').toLowerCase()
+  const hasModels = Array.isArray(models) && models.length > 0
+  const hasUrl = !!inferenceUrl
+  const hasActivity = parseInt(currentStats?.inference_count || '0', 10) > 0
+  if (status === 'inactive' || status === 'offline') return false
+  if (status === 'active' || status === 'enabled' || status === 'ramping' || hasModels || hasUrl || hasActivity) return true
+  return undefined
+}
+
 function computeMissedRate(currentStats) {
   const missed = parseInt(currentStats?.missed_requests || '0', 10)
   const inf = parseInt(currentStats?.inference_count || '0', 10)
@@ -75,7 +93,15 @@ class InferenceService {
         models: extra.models,
         current_epoch_stats: p.current_epoch_stats,
         missed_rate: computeMissedRate(p.current_epoch_stats),
-        invalidation_rate: computeInvalidationRate(p.current_epoch_stats)
+        invalidation_rate: computeInvalidationRate(p.current_epoch_stats),
+        is_jailed: deriveIsJailed(p.status),
+        node_healthy: deriveNodeHealthy({
+          statusRaw: p.status,
+          models: extra.models,
+          inferenceUrl: p.inference_url,
+          currentStats: p.current_epoch_stats
+        }),
+        node_health_checked_at: new Date().toISOString()
       }
       participants.push(stat)
       const rowForSave = { ...stat, seed_signature: null }
@@ -209,7 +235,15 @@ class InferenceService {
       models: extra.models,
       current_epoch_stats: base.current_epoch_stats,
       missed_rate: computeMissedRate(base.current_epoch_stats),
-      invalidation_rate: computeInvalidationRate(base.current_epoch_stats)
+      invalidation_rate: computeInvalidationRate(base.current_epoch_stats),
+      is_jailed: deriveIsJailed(base.status),
+      node_healthy: deriveNodeHealthy({
+        statusRaw: base.status,
+        models: extra.models,
+        inferenceUrl: base.inference_url,
+        currentStats: base.current_epoch_stats
+      }),
+      node_health_checked_at: new Date().toISOString()
     }
 
     const details = {

@@ -222,41 +222,12 @@ export function ParticipantModal({ participant, epochId, currentEpochId, onClose
 
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Jail Status</label>
-                <div className="mt-1">
-                  {participant.is_jailed === true ? (
-                    <span className="inline-block px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 border border-red-300 rounded">
-                      JAILED
-                    </span>
-                  ) : participant.is_jailed === false ? (
-                    <span className="inline-block px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 border border-green-300 rounded">
-                      ACTIVE
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 text-xs">Unknown</span>
-                  )}
-                </div>
+                {/** Jail status temporarily disabled until we can match external tracker logic */}
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Health Status</label>
-                <div className="mt-1 flex items-center gap-2">
-                  {participant.node_healthy === true ? (
-                    <>
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-sm text-gray-900">Healthy</span>
-                    </>
-                  ) : participant.node_healthy === false ? (
-                    <>
-                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span className="text-sm text-gray-900">Unhealthy</span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
-                      <span className="text-sm text-gray-400">Unknown</span>
-                    </>
-                  )}
-                </div>
+                {/** Health status temporarily disabled until we can match external tracker logic */}
               </div>
             </div>
 

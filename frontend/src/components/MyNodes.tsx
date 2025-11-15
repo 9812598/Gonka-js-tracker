@@ -279,8 +279,7 @@ export function MyNodes() {
                 <tr className="text-left text-gray-600">
                   <th className="py-2 pr-4">Wallet</th>
                   <th className="py-2 pr-4">Chain</th>
-                  <th className="py-2 pr-4">Jail</th>
-                  <th className="py-2 pr-4">Health</th>
+                  {/** Jail/Health columns temporarily disabled until we can match external tracker logic */}
                   <th className="py-2 pr-4">Models</th>
                   <th className="py-2 pr-4">Total inferenced</th>
                   <th className="py-2 pr-4">Validated</th>
@@ -297,7 +296,7 @@ export function MyNodes() {
                   const loading = !!loadingMap[addr]
                   const metrics = calcMetrics(details || null)
                   const status = statusMap[addr] || 'unknown'
-                  const isJailed = (details?.status || '').toLowerCase().includes('jail')
+                  // const isJailed = (details?.status || '').toLowerCase().includes('jail')
                   return (
                     <tr key={addr}>
                       <td className="py-2 pr-4 text-gray-900">
@@ -312,8 +311,7 @@ export function MyNodes() {
                         </div>
                       </td>
                       <td className="py-2 pr-4">{details?.status || '-'}</td>
-                      <td className="py-2 pr-4">{details ? (isJailed ? 'Yes' : 'No') : '-'}</td>
-                      <td className="py-2 pr-4">{status === 'working' ? 'Good' : status === 'not_working' ? 'Bad' : 'Unknown'}</td>
+                      {/** Jail/Health cells temporarily disabled until we can match external tracker logic */}
                       <td className="py-2 pr-4">
                         {(details?.models?.length || 0) > 0 ? (
                           details!.models!.join(', ')
@@ -360,7 +358,7 @@ export function MyNodes() {
                 <div key={addr} className="py-3 flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <AddressLabel addr={addr} className="text-sm md:text-base text-gray-900" />
+                      <span className="font-mono text-sm md:text-base text-gray-900 break-all">{addr}</span>
                       <button
                         onClick={() => copyAddr(addr)}
                         className="text-xs px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50"
