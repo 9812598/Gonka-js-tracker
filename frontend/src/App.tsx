@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { InferenceResponse } from './types/inference'
 import { ParticipantTable } from './components/ParticipantTable'
@@ -20,6 +20,8 @@ function App() {
 
   const apiUrl = import.meta.env.VITE_API_URL || '/api'
   const { prefetchAll } = usePrefetch()
+  // Stable fallback timestamp to avoid changing dependency causing infinite re-renders
+  const initialTimestampRef = useRef<string>(new Date().toISOString())
 
   const fetchInference = async (epochId: number | null) => {
     const endpoint = epochId
@@ -43,7 +45,7 @@ function App() {
 
   const estimatedBlock = useEstimatedBlock(
     data?.current_block_height || 0,
-    data?.current_block_timestamp || new Date().toISOString(),
+    data?.current_block_timestamp || initialTimestampRef.current,
     data?.avg_block_time || 6
   )
 

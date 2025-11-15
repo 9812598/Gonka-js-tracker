@@ -24,6 +24,7 @@ export function MyNodes() {
   const [statusMap, setStatusMap] = useState<Record<string, NodeStatus>>({})
   const [errorMap, setErrorMap] = useState<Record<string, string>>({})
   const [detailsMap, setDetailsMap] = useState<Record<string, ParticipantDetails | null>>({})
+  const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
 
   // Load saved addresses strictly from backend
   useEffect(() => {
@@ -66,6 +67,18 @@ export function MyNodes() {
         </span>
       </span>
     )
+  }
+
+  const copyAddr = (addr: string) => {
+    navigator.clipboard
+      .writeText(addr)
+      .then(() => {
+        setCopiedAddr(addr)
+        setTimeout(() => setCopiedAddr(null), 1500)
+      })
+      .catch(() => {
+        // noop
+      })
   }
 
   const addAddresses = () => {
@@ -285,30 +298,33 @@ export function MyNodes() {
                   const metrics = calcMetrics(details || null)
                   const status = statusMap[addr] || 'unknown'
                   const isJailed = (details?.status || '').toLowerCase().includes('jail')
-                  const badgeClass =
-                    status === 'working'
-                      ? 'bg-green-100 text-green-800'
-                      : status === 'not_working'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-gray-100 text-gray-800'
                   return (
                     <tr key={addr}>
                       <td className="py-2 pr-4 text-gray-900">
                         <div className="flex items-center gap-2">
                           <AddressLabel addr={addr} />
-                          <span className={`text-[10px] px-2 py-0.5 rounded ${badgeClass}`}>
-                            {loading ? 'Checking...' : status === 'working' ? 'Working' : status === 'not_working' ? 'Not working' : 'Unknown'}
-                          </span>
+                          <button
+                            onClick={() => copyAddr(addr)}
+                            className="text-[10px] px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                          >
+                            {copiedAddr === addr ? 'Copied!' : 'Copy'}
+                          </button>
                         </div>
                       </td>
                       <td className="py-2 pr-4">{details?.status || '-'}</td>
                       <td className="py-2 pr-4">{details ? (isJailed ? 'Yes' : 'No') : '-'}</td>
                       <td className="py-2 pr-4">{status === 'working' ? 'Good' : status === 'not_working' ? 'Bad' : 'Unknown'}</td>
-                      <td className="py-2 pr-4">{(details?.models?.length || 0) > 0 ? (details!.models!.join(', ')) : '-'}</td>
+                      <td className="py-2 pr-4">
+                        {(details?.models?.length || 0) > 0 ? (
+                          details!.models!.join(', ')
+                        ) : (
+                          <span className="text-red-600 font-semibold">Not Found</span>
+                        )}
+                      </td>
                       <td className="py-2 pr-4">{metrics.totalInferenced}</td>
                       <td className="py-2 pr-4">{metrics.validated}</td>
-                      <td className="py-2 pr-4">{metrics.invalidated}</td>
-                      <td className="py-2 pr-4">{metrics.missed}</td>
+                      <td className={`py-2 pr-4 ${metrics.invalidated > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>{metrics.invalidated}</td>
+                      <td className={`py-2 pr-4 ${metrics.missed > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>{metrics.missed}</td>
                       <td className="py-2 pr-4">{formatPct(metrics.missedRate)}</td>
                       <td className="py-2 pr-4">{formatPct(100 - metrics.missedRate)}</td>
                       <td className="py-2 pr-4">{formatPct(metrics.invalidationRate)}</td>
@@ -339,21 +355,18 @@ export function MyNodes() {
               const status = statusMap[addr] || 'unknown'
               const loading = !!loadingMap[addr]
               const details = detailsMap[addr]
-              const badgeClass =
-                status === 'working'
-                  ? 'bg-green-100 text-green-800'
-                  : status === 'not_working'
-                  ? 'bg-red-100 text-red-800'
-                  : 'bg-gray-100 text-gray-800'
 
               return (
                 <div key={addr} className="py-3 flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <AddressLabel addr={addr} className="text-sm md:text-base text-gray-900" />
-                      <span className={`text-xs px-2 py-0.5 rounded ${badgeClass}`}>
-                        {loading ? 'Checking...' : status === 'working' ? 'Working' : status === 'not_working' ? 'Not working' : 'Unknown'}
-                      </span>
+                      <button
+                        onClick={() => copyAddr(addr)}
+                        className="text-xs px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                      >
+                        {copiedAddr === addr ? 'Copied!' : 'Copy'}
+                      </button>
                     </div>
                     <div className="mt-1 text-xs text-gray-600">
                       {details ? (

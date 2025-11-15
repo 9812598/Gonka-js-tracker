@@ -273,7 +273,7 @@ export function ParticipantModal({ participant, epochId, currentEpochId, onClose
                     </span>
                   ))
                 ) : (
-                  <span className="text-gray-400 text-sm">No models</span>
+                  <span className="text-red-600 text-sm font-semibold">Not Found</span>
                 )}
               </div>
             </div>
@@ -426,7 +426,7 @@ export function ParticipantModal({ participant, epochId, currentEpochId, onClose
                               </span>
                             ))
                           ) : (
-                            <span className="text-xs text-gray-400">No models</span>
+                            <span className="text-xs text-red-600 font-semibold">Not Found</span>
                           )}
                         </div>
                       </div>

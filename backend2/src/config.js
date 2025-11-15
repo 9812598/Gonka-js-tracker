@@ -24,8 +24,8 @@ const DEFAULT_CORS = [
   'http://localhost:4173',
   'https://tracker.gonka.top',
   'http://tracker.gonka.top',
-  'https://tracker-back.tracker.gonka.top',
-  'http://tracker-back.tracker.gonka.top'
+  'https://tracker-back.gonka.top',
+  'http://tracker-back.gonka.top'
 ]
 
 const CORS_ENV = process.env.CORS_ORIGIN

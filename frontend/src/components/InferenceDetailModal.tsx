@@ -92,7 +92,13 @@ export function InferenceDetailModal({ inference, onClose }: InferenceDetailModa
 
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Model</label>
-              <div className="mt-1 text-sm text-gray-900">{inference.model || '-'}</div>
+              <div className="mt-1 text-sm text-gray-900">
+                {inference.model ? (
+                  inference.model
+                ) : (
+                  <span className="text-red-600 font-semibold">Not Found</span>
+                )}
+              </div>
             </div>
 
             <div>
