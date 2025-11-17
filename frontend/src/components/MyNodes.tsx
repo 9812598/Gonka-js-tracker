@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { EpochSelector } from './EpochSelector'
 
 type NodeStatus = 'working' | 'not_working' | 'unknown'
 
@@ -16,7 +17,7 @@ interface ParticipantDetails {
   }
 }
 
-export function MyNodes() {
+export function MyNodes({ authToken }: { authToken: string | null }) {
   const apiUrl = import.meta.env.VITE_API_URL || '/api'
   const [inputText, setInputText] = useState('')
   const [addresses, setAddresses] = useState<string[]>([])
@@ -25,24 +26,41 @@ export function MyNodes() {
   const [errorMap, setErrorMap] = useState<Record<string, string>>({})
   const [detailsMap, setDetailsMap] = useState<Record<string, ParticipantDetails | null>>({})
   const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null)
+  const [epochId, setEpochId] = useState<number | null>(null)
+  const [selectedEpochId, setSelectedEpochId] = useState<number | null>(null)
+  const [nowTick, setNowTick] = useState<number>(() => Date.now())
+  const [highlightedAddr, setHighlightedAddr] = useState<string | null>(null)
 
-  // Load saved addresses strictly from backend
+  // Load saved addresses strictly from backend when logged in; clear on logout
   useEffect(() => {
     const loadWallets = async () => {
       try {
-        const res = await fetch(`${apiUrl}/v1/wallets`)
+        const headers: Record<string, string> = {}
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+        const res = await fetch(`${apiUrl}/v1/wallets`, { headers })
         if (res.ok) {
           const data = await res.json()
           const list: string[] = Array.isArray(data?.wallets) ? data.wallets.map((w: any) => String(w.address)) : []
-          if (list.length > 0) {
-            setAddresses(list)
-            return
-          }
+          setAddresses(list)
+          if (list.length > 0) setLastUpdatedAt(Date.now())
         }
       } catch {}
     }
-    loadWallets()
-  }, [])
+    if (authToken) {
+      loadWallets()
+    } else {
+      setAddresses([])
+      setStatusMap({})
+      setDetailsMap({})
+      setErrorMap({})
+      setInputText('')
+      setHighlightedAddr(null)
+      setCopiedAddr(null)
+      setLastUpdatedAt(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken])
 
   const parseInput = (text: string): string[] => {
     return Array.from(
@@ -73,7 +91,9 @@ export function MyNodes() {
     navigator.clipboard
       .writeText(addr)
       .then(() => {
+        // Flash button text but keep persistent row highlight until another copy
         setCopiedAddr(addr)
+        setHighlightedAddr(addr)
         setTimeout(() => setCopiedAddr(null), 1500)
       })
       .catch(() => {
@@ -82,6 +102,7 @@ export function MyNodes() {
   }
 
   const addAddresses = () => {
+    if (!authToken) return
     const parsed = parseInput(inputText)
     if (parsed.length === 0) return
     const filtered = parsed.filter(isLikelyAddress)
@@ -95,9 +116,11 @@ export function MyNodes() {
       try {
         await Promise.all(
           newOnes.map(async (addr) => {
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+            if (authToken) headers['Authorization'] = `Bearer ${authToken}`
             const res = await fetch(`${apiUrl}/v1/wallets`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({ address: addr })
             })
             if (!res.ok) {
@@ -107,11 +130,14 @@ export function MyNodes() {
           })
         )
         // Re-sync with backend to ensure persistence
-        const res = await fetch(`${apiUrl}/v1/wallets`)
+        const headers2: Record<string, string> = {}
+        if (authToken) headers2['Authorization'] = `Bearer ${authToken}`
+        const res = await fetch(`${apiUrl}/v1/wallets`, { headers: headers2 })
         if (res.ok) {
           const data = await res.json()
           const list: string[] = Array.isArray(data?.wallets) ? data.wallets.map((w: any) => String(w.address)) : []
           setAddresses(list)
+          if (list.length > 0) setLastUpdatedAt(Date.now())
         } else {
           const errText = await res.text().catch(() => '')
           console.error('Failed to reload wallets:', res.status, errText)
@@ -143,9 +169,13 @@ export function MyNodes() {
     // Persist removal to backend
     ;(async () => {
       try {
-        await fetch(`${apiUrl}/v1/wallets/${encodeURIComponent(addr)}`, { method: 'DELETE' })
+        const headers: Record<string, string> = {}
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+        await fetch(`${apiUrl}/v1/wallets/${encodeURIComponent(addr)}`, { method: 'DELETE', headers })
         // Re-sync with backend to ensure persistence
-        const res = await fetch(`${apiUrl}/v1/wallets`)
+        const headers2: Record<string, string> = {}
+        if (authToken) headers2['Authorization'] = `Bearer ${authToken}`
+        const res = await fetch(`${apiUrl}/v1/wallets`, { headers: headers2 })
         if (res.ok) {
           const data = await res.json()
           const list: string[] = Array.isArray(data?.wallets) ? data.wallets.map((w: any) => String(w.address)) : []
@@ -192,8 +222,10 @@ export function MyNodes() {
     }
   }
 
-  const refreshAll = () => {
-    addresses.forEach((addr) => fetchStatus(addr))
+  const refreshAll = async () => {
+    if (addresses.length === 0) return
+    await Promise.all(addresses.map((addr) => fetchStatus(addr)))
+    setLastUpdatedAt(Date.now())
   }
 
   useEffect(() => {
@@ -201,8 +233,46 @@ export function MyNodes() {
     addresses.forEach((addr) => {
       if (!statusMap[addr]) fetchStatus(addr)
     })
+    if (addresses.length > 0 && lastUpdatedAt === null) {
+      setLastUpdatedAt(Date.now())
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addresses])
+
+  // Auto-refresh every 30s when there are addresses
+  useEffect(() => {
+    if (addresses.length === 0) return
+    const timer = setInterval(() => {
+      refreshAll()
+    }, 30000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addresses])
+
+  // Per-second tick to update "(Xs ago)" display
+  useEffect(() => {
+    if (addresses.length === 0) return
+    const t = setInterval(() => setNowTick(Date.now()), 1000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addresses])
+
+  // Fetch current epoch id (and refresh it every 30s)
+  useEffect(() => {
+    const fetchEpoch = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/v1/inference/current`)
+        if (res.ok) {
+          const data = await res.json()
+          if (typeof data?.epoch_id === 'number') setEpochId(data.epoch_id)
+        }
+      } catch {}
+    }
+    fetchEpoch()
+    const t = setInterval(fetchEpoch, 30000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const summaryCounts = useMemo(() => {
     let working = 0
@@ -238,6 +308,12 @@ export function MyNodes() {
           <p className="text-xs md:text-sm text-gray-500">Add one or multiple addresses separated by spaces, commas, or newlines.</p>
         </div>
 
+        {!authToken && (
+          <div className="mb-3 text-xs md:text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-3">
+            Войдите через Google, чтобы сохранять и загружать ваш список адресов.
+          </div>
+        )}
+
         <div className="flex flex-col gap-3">
           <textarea
             value={inputText}
@@ -248,7 +324,8 @@ export function MyNodes() {
           <div className="flex items-center gap-3">
             <button
               onClick={addAddresses}
-              className="px-5 py-2.5 bg-gray-900 text-white font-medium rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              disabled={!authToken}
+              className="px-5 py-2.5 bg-gray-900 text-white font-medium rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               Add Addresses
             </button>
@@ -258,8 +335,70 @@ export function MyNodes() {
             >
               Refresh Statuses
             </button>
+            <button
+              onClick={async () => {
+                if (addresses.length === 0) return
+                try {
+                  if (authToken) {
+                    const headers: Record<string, string> = { Authorization: `Bearer ${authToken}` }
+                    await Promise.all(
+                      addresses.map((addr) =>
+                        fetch(`${apiUrl}/v1/wallets/${encodeURIComponent(addr)}`, {
+                          method: 'DELETE',
+                          headers
+                        })
+                      )
+                    )
+                    // Re-sync to confirm empty
+                    const res = await fetch(`${apiUrl}/v1/wallets`, { headers })
+                    if (res.ok) {
+                      const data = await res.json()
+                      const list: string[] = Array.isArray(data?.wallets) ? data.wallets.map((w: any) => String(w.address)) : []
+                      setAddresses(list)
+                    }
+                  }
+                } catch {}
+                setAddresses([])
+                setStatusMap({})
+                setDetailsMap({})
+                setErrorMap({})
+                setInputText('')
+                setHighlightedAddr(null)
+                setCopiedAddr(null)
+                setLastUpdatedAt(null)
+              }}
+              disabled={!authToken || addresses.length === 0}
+              className="px-5 py-2.5 bg-white text-gray-900 border border-gray-300 font-medium rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              Delete All
+            </button>
           </div>
         </div>
+
+        {authToken && addresses.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-4 border-t border-gray-200 mt-4">
+            <div className="flex-1 flex items-center justify-center sm:justify-start">
+              <span className="text-xs text-gray-500">
+                Auto-refreshing every 30s
+                {lastUpdatedAt !== null && ` (${Math.floor(Math.max(0, nowTick - lastUpdatedAt) / 1000)}s ago)`}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <EpochSelector
+                currentEpochId={epochId || 0}
+                selectedEpochId={selectedEpochId}
+                onSelectEpoch={setSelectedEpochId}
+                disabled={false}
+              />
+              <button
+                onClick={refreshAll}
+                className="flex-1 sm:flex-none px-5 py-2.5 bg-gray-900 text-white font-medium rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Host Dashboard-style metrics table */}
@@ -295,8 +434,9 @@ export function MyNodes() {
                   const details = detailsMap[addr]
                   const metrics = calcMetrics(details || null)
                   // const isJailed = (details?.status || '').toLowerCase().includes('jail')
+                  const isHighlighted = highlightedAddr === addr
                   return (
-                    <tr key={addr}>
+                    <tr key={addr} className={`${isHighlighted ? 'bg-gray-50 outline outline-1 outline-gray-300' : ''}`}>
                       <td className="py-2 pr-4 text-gray-900">
                         <div className="flex items-center gap-2">
                           <AddressLabel addr={addr} />
@@ -329,6 +469,25 @@ export function MyNodes() {
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-4 border-t border-gray-200">
+            <div className="flex-1 flex items-center justify-center sm:justify-start">
+              <span className="text-xs text-gray-500">
+                Auto-refreshing every 30s
+                {lastUpdatedAt !== null && ` (${Math.floor(Math.max(0, Date.now() - lastUpdatedAt) / 1000)}s ago)`}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              {epochId !== null && (
+                <span className="text-xs text-gray-600">Epoch: {epochId}</span>
+              )}
+              <button
+                onClick={refreshAll}
+                className="text-xs px-3 py-1 bg-gray-900 text-white rounded hover:bg-gray-800"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
       )}

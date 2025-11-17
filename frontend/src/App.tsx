@@ -17,11 +17,86 @@ function App() {
   const [selectedEpochId, setSelectedEpochId] = useState<number | null>(null)
   const [currentEpochId, setCurrentEpochId] = useState<number | null>(null)
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null)
+  const [authToken, setAuthToken] = useState<string | null>(null)
+  const [authUser, setAuthUser] = useState<{ id?: string; email?: string; name?: string; picture?: string } | null>(null)
+  const gsiBtnRef = useRef<HTMLDivElement | null>(null)
 
   const apiUrl = import.meta.env.VITE_API_URL || '/api'
   const { prefetchAll } = usePrefetch()
   // Stable fallback timestamp to avoid changing dependency causing infinite re-renders
   const initialTimestampRef = useRef<string>(new Date().toISOString())
+
+  useEffect(() => {
+    const t = localStorage.getItem('authToken')
+    const u = localStorage.getItem('authUser')
+    setAuthToken(t)
+    setAuthUser(u ? JSON.parse(u) : null)
+  }, [])
+
+  // Initialize Google Identity Services and render FedCM button when not logged in
+  useEffect(() => {
+    if (authToken) return
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
+    const googleObj = (window as any).google
+    if (!clientId || !googleObj || !googleObj.accounts?.id) {
+      console.warn('[auth] Google auth not configured or library missing')
+      return
+    }
+    console.log('[auth] initializing Google accounts.id (FedCM button)', { clientId })
+    try {
+      googleObj.accounts.id.initialize({
+        client_id: clientId,
+        context: 'signin',
+        use_fedcm_for_prompt: true,
+        callback: async (response: any) => {
+          console.log('[auth] Google callback fired', response)
+          const idToken = response?.credential
+          if (!idToken) return
+          try {
+            console.log('[auth] sending id_token to backend')
+            const res = await fetch(`${apiUrl}/v1/auth/google`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id_token: idToken })
+            })
+            if (!res.ok) {
+              const txt = await res.text().catch(() => '')
+              alert(`Auth failed: ${res.status}${txt ? ` - ${txt}` : ''}`)
+              return
+            }
+            const data = await res.json()
+            localStorage.setItem('authToken', data.token)
+            localStorage.setItem('authUser', JSON.stringify(data.user))
+            setAuthToken(data.token)
+            setAuthUser(data.user)
+            console.log('[auth] success, user', data.user)
+          } catch (e) {
+            console.error('[auth] network error during auth', e)
+            alert('Network error during auth')
+          }
+        }
+      })
+      if (gsiBtnRef.current) {
+        googleObj.accounts.id.renderButton(gsiBtnRef.current, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'medium',
+          text: 'signin_with',
+          shape: 'rectangular'
+        })
+      }
+      // Do NOT call prompt() here; using explicit Button flow with FedCM
+    } catch (e) {
+      console.error('[auth] error initializing Google accounts.id', e)
+    }
+  }, [authToken, apiUrl])
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('authUser')
+    setAuthToken(null)
+    setAuthUser(null)
+  }
 
   const fetchInference = async (epochId: number | null) => {
     const endpoint = epochId
@@ -214,6 +289,23 @@ function App() {
                 Real-time monitoring of participant performance and model availability
               </p>
             </div>
+            <div className="flex items-center gap-2">
+              {authToken && authUser ? (
+                <>
+                  <span className="text-sm text-gray-700">{authUser.name || authUser.email || 'User'}</span>
+                  <button
+                    onClick={handleLogout}
+                    className="px-3 py-1.5 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                  >
+                    Выйти
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center">
+                  <div ref={gsiBtnRef} className="flex items-center" />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-2 sm:gap-3">
@@ -265,7 +357,7 @@ function App() {
         ) : currentPage === 'models' ? (
           <Models />
         ) : currentPage === 'myNodes' ? (
-          <MyNodes />
+          <MyNodes authToken={authToken} />
         ) : currentPage === 'hostDashboard' ? (
           data && (
             <>
