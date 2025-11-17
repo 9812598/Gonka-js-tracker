@@ -1,4 +1,7 @@
 const { CacheDB } = require('./db')
+const axios = require('axios')
+const jwt = require('jsonwebtoken')
+const config = require('./config')
 
 function deriveIsJailed(statusRaw) {
   const status = String(statusRaw || '').toLowerCase()
@@ -297,6 +300,60 @@ class InferenceService {
     } catch (e) {
       throw new Error(`Failed to delete wallet: ${e.message}`)
     }
+  }
+
+  // --- Per-user wallets ---
+  getUserWallets(userId) {
+    try {
+      return { wallets: this.db.listUserWallets(userId) }
+    } catch (e) {
+      throw new Error(`Failed to list user wallets: ${e.message}`)
+    }
+  }
+
+  addUserWallet({ userId, address, label }) {
+    try {
+      const row = this.db.addUserWallet(userId, address, label)
+      if (!row) throw new Error('Address is empty')
+      return { wallet: row }
+    } catch (e) {
+      throw new Error(`Failed to add wallet: ${e.message}`)
+    }
+  }
+
+  deleteUserWallet({ userId, address }) {
+    try {
+      const ok = this.db.deleteUserWallet(userId, address)
+      return { deleted: ok }
+    } catch (e) {
+      throw new Error(`Failed to delete wallet: ${e.message}`)
+    }
+  }
+
+  // --- Auth via Google ID token ---
+  async loginWithGoogleIdToken(idToken) {
+    const token = String(idToken || '').trim()
+    if (!token) throw new Error('id_token is required')
+
+    // Verify against Google tokeninfo endpoint
+    console.log('[auth] verifying id_token with Google tokeninfo')
+    const { data } = await axios.get('https://oauth2.googleapis.com/tokeninfo', { params: { id_token: token } })
+    const aud = data?.aud
+    const sub = data?.sub
+    if (!sub) throw new Error('Invalid Google token: missing sub')
+    if (config.googleClientId && aud !== config.googleClientId) {
+      console.warn('[auth] audience mismatch', { expected: config.googleClientId, got: aud })
+      throw new Error('Google token audience mismatch')
+    }
+    const email = data?.email || null
+    const name = data?.name || null
+    const picture = data?.picture || null
+
+    const user = this.db.upsertUser({ id: sub, email, name, picture })
+    const payload = { uid: user.id, email: user.email, name: user.name }
+    const signed = jwt.sign(payload, config.jwtSecret, { expiresIn: '30d' })
+    console.log('[auth] issued jwt', { uid: user.id, email: user.email })
+    return { token: signed, user: { id: user.id, email: user.email, name: user.name, picture: user.picture } }
   }
 }
 

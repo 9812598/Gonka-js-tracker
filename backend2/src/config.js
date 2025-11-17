@@ -58,5 +58,7 @@ module.exports = {
   dbPath: resolveDbPath(process.env.CACHE_DB_PATH),
   timeouts: {
     http: toInt(process.env.HTTP_TIMEOUT_MS, 30000)
-  }
+  },
+  jwtSecret: (process.env.JWT_SECRET || 'dev_secret_change_me'),
+  googleClientId: (process.env.GOOGLE_CLIENT_ID || '')
 }

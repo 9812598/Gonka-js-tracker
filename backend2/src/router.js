@@ -1,4 +1,21 @@
 const express = require('express')
+const jwt = require('jsonwebtoken')
+const config = require('./config')
+
+function requireAuth(req, res, next) {
+  const auth = req.headers['authorization'] || ''
+  const m = auth.match(/^Bearer\s+(.+)$/i)
+  if (!m) {
+    return res.status(401).json({ error: 'Unauthorized: missing Bearer token' })
+  }
+  try {
+    const payload = jwt.verify(m[1], config.jwtSecret)
+    req.user = payload
+    next()
+  } catch (e) {
+    return res.status(401).json({ error: 'Unauthorized: invalid token' })
+  }
+}
 
 function createRouter(service) {
   const router = express.Router()
@@ -35,31 +52,45 @@ function createRouter(service) {
     }
   })
 
-  // Wallets CRUD
-  router.get('/wallets', (req, res) => {
+  // Auth: Google ID token -> JWT
+  router.post('/auth/google', async (req, res) => {
     try {
-      const data = service.getWallets()
+      const { id_token } = req.body || {}
+      console.log('[auth/google] incoming request', { has_token: !!id_token })
+      const out = await service.loginWithGoogleIdToken(id_token)
+      console.log('[auth/google] success for', out.user?.email || out.user?.id)
+      res.json(out)
+    } catch (e) {
+      console.error('[auth/google] error', e && e.message)
+      res.status(400).json({ error: e.message })
+    }
+  })
+
+  // Wallets CRUD
+  router.get('/wallets', requireAuth, (req, res) => {
+    try {
+      const data = service.getUserWallets(req.user.uid)
       res.json(data)
     } catch (e) {
       res.status(500).json({ error: e.message })
     }
   })
-  router.post('/wallets', (req, res) => {
+  router.post('/wallets', requireAuth, (req, res) => {
     const { address, label } = req.body || {}
     if (!address || String(address).trim() === '') {
       return res.status(400).json({ error: 'address is required' })
     }
     try {
-      const data = service.addWallet({ address, label })
+      const data = service.addUserWallet({ userId: req.user.uid, address, label })
       res.json(data)
     } catch (e) {
       res.status(500).json({ error: e.message })
     }
   })
-  router.delete('/wallets/:address', (req, res) => {
+  router.delete('/wallets/:address', requireAuth, (req, res) => {
     const address = req.params.address
     try {
-      const data = service.deleteWallet({ address })
+      const data = service.deleteUserWallet({ userId: req.user.uid, address })
       res.json(data)
     } catch (e) {
       res.status(500).json({ error: e.message })

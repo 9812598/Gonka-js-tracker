@@ -18,7 +18,9 @@ class CacheDB {
         inference_stats: [],
         models_api_cache: new Map(),
         timeline_cache: null,
-        wallets: []
+        wallets: [],
+        users: [],
+        user_wallets: []
       }
       return
     }
@@ -96,6 +98,31 @@ class CacheDB {
         label TEXT,
         created_at TEXT NOT NULL
       );
+    `)
+
+    // users
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY, -- Google sub
+        email TEXT,
+        name TEXT,
+        picture TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    `)
+
+    // user_wallets (per user list)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS user_wallets (
+        user_id TEXT NOT NULL,
+        address TEXT NOT NULL,
+        label TEXT,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, address),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_wallets_user ON user_wallets(user_id);
     `)
   }
 
@@ -255,6 +282,95 @@ class CacheDB {
       return this._mem.wallets.length < before
     }
     const info = this.db.prepare(`DELETE FROM wallets WHERE address = ?`).run(addr)
+    return (info.changes || 0) > 0
+  }
+
+  // --- Users ---
+  upsertUser({ id, email, name, picture }) {
+    const uid = String(id || '').trim()
+    if (!uid) return null
+    const now = new Date().toISOString()
+    if (!Database) {
+      const idx = this._mem.users.findIndex(u => u.id === uid)
+      const row = { id: uid, email: email || null, name: name || null, picture: picture || null, created_at: now }
+      if (idx >= 0) {
+        this._mem.users[idx] = { ...this._mem.users[idx], email: row.email, name: row.name, picture: row.picture }
+      } else {
+        this._mem.users.push(row)
+      }
+      return row
+    }
+    this.db.prepare(`
+      INSERT INTO users (id, email, name, picture, created_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        email = excluded.email,
+        name = excluded.name,
+        picture = excluded.picture
+    `).run(uid, email || null, name || null, picture || null, now)
+    const row = this.db.prepare(`SELECT id, email, name, picture, created_at FROM users WHERE id = ?`).get(uid)
+    return row
+  }
+
+  getUserById(id) {
+    const uid = String(id || '').trim()
+    if (!uid) return null
+    if (!Database) {
+      return this._mem.users.find(u => u.id === uid) || null
+    }
+    return this.db.prepare(`SELECT id, email, name, picture, created_at FROM users WHERE id = ?`).get(uid) || null
+  }
+
+  // --- Per-user wallets ---
+  listUserWallets(userId) {
+    const uid = String(userId || '').trim()
+    if (!uid) return []
+    if (!Database) {
+      return this._mem.user_wallets.filter(w => w.user_id === uid).slice()
+    }
+    const rows = this.db.prepare(`
+      SELECT address, label, created_at FROM user_wallets WHERE user_id = ? ORDER BY created_at DESC
+    `).all(uid)
+    return rows
+  }
+
+  addUserWallet(userId, address, label = null) {
+    const uid = String(userId || '').trim()
+    const addr = String(address || '').trim()
+    if (!uid || !addr) return null
+    const now = new Date().toISOString()
+    if (!Database) {
+      const idx = this._mem.user_wallets.findIndex(w => w.user_id === uid && w.address === addr)
+      const row = { user_id: uid, address: addr, label: label || null, created_at: now }
+      if (idx >= 0) {
+        this._mem.user_wallets[idx] = { ...this._mem.user_wallets[idx], label: row.label }
+      } else {
+        this._mem.user_wallets.push(row)
+      }
+      return { address: row.address, label: row.label, created_at: row.created_at }
+    }
+    this.db.prepare(`
+      INSERT OR IGNORE INTO user_wallets (user_id, address, label, created_at) VALUES (?, ?, ?, ?)
+    `).run(uid, addr, label || null, now)
+    if (label && label.trim() !== '') {
+      this.db.prepare(`UPDATE user_wallets SET label = ? WHERE user_id = ? AND address = ?`).run(label, uid, addr)
+    }
+    const row = this.db.prepare(`
+      SELECT address, label, created_at FROM user_wallets WHERE user_id = ? AND address = ?
+    `).get(uid, addr)
+    return row
+  }
+
+  deleteUserWallet(userId, address) {
+    const uid = String(userId || '').trim()
+    const addr = String(address || '').trim()
+    if (!uid || !addr) return false
+    if (!Database) {
+      const before = this._mem.user_wallets.length
+      this._mem.user_wallets = this._mem.user_wallets.filter(w => !(w.user_id === uid && w.address === addr))
+      return this._mem.user_wallets.length < before
+    }
+    const info = this.db.prepare(`DELETE FROM user_wallets WHERE user_id = ? AND address = ?`).run(uid, addr)
     return (info.changes || 0) > 0
   }
 }
