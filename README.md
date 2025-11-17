@@ -17,7 +17,7 @@ cd /frontend
 
 npm run build
 
-pm2 start npm --name 'front' -- run preview
+pm2 start npm --name 'frontend' -- run preview
 
 (npm run preview)
 
